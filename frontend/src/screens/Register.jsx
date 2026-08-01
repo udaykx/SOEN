@@ -1,8 +1,28 @@
-import React from 'react'
-import { Link } from 'react-router-dom';
-
+import React, { useState }from 'react'
+import { Link, useNavigate } from 'react-router-dom';
+import axios from '../config/axios';
 
 const Register = () => {
+
+
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+
+    const navigate = useNavigate();
+
+    function submitHandler(e) {
+        e.preventDefault();
+
+        axios.post('/users/register', {
+            email,
+            password
+        }).then((res) => {
+            console.log(res.data);
+            navigate('/');
+        }).catch((err) => {
+            console.log(err.response.data);
+        });
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -10,6 +30,7 @@ const Register = () => {
                 <h2 className="text-2xl font-bold text-white mb-6">Register</h2>
                 <form
                     
+                    onSubmit={submitHandler}
                 >
                     <div className="mb-4">
                         <label className="block text-gray-400 mb-2" htmlFor="email">Email</label>
