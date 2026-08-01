@@ -3,11 +3,12 @@ import express from 'express';
 import morgan from 'morgan';
 import connect from './db/db.js';
 import userRoutes from './routes/user.routes.js';
-
+import cookieParser from 'cookie-parser';
 
 connect();
 
 const app = express();
+app.use(cookieParser());
 
 
 app.use(morgan('dev'));
