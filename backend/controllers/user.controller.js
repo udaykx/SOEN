@@ -65,28 +65,6 @@ export const loginController = async (req, res) => {
         res.status(400).send(err.message);
     }
 }
-<<<<<<< HEAD
-
-export const profileController = async (req, res) => {
-    console.log(req.user);
-
-    res.status(200).json({ 
-        user: req.user });
-} 
-
-export const logoutUserController = async (req, res) => {
-    try {
-
-        const token = req.cookies.token || req.headers.authorization.split(' ')[1];
-
-        redisClient.set(token, 'logged_out', 'EX', 24 * 60 * 60);
-
-        res.status(200).json({ message: 'User logged out successfully' });
-
-    } catch (err) {
-        console.error(err);
-        res.status(400).send(error.message);
-=======
 
 export const profileController = async (req, res) => {
 
@@ -133,6 +111,5 @@ export const getAllUsersController = async (req, res) => {
 
         res.status(400).json({ error: err.message })
 
->>>>>>> feature/frontend
     }
 }
