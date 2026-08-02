@@ -11,11 +11,15 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@webcontainer/api": "^1.6.4",
     "axios": "^1.19.0",
+    "highlight.js": "^11.11.1",
+    "markdown-to-jsx": "^9.10.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",
-    "remixicon": "^4.9.1"
+    "remixicon": "^4.9.1",
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
