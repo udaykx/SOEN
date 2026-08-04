@@ -5,6 +5,7 @@ import axios from '../config/axios'
 import { initializeSocket, receiveMessage, sendMessage } from '../config/socket'
 import Markdown from 'markdown-to-jsx'
 import hljs from 'highlight.js';
+import 'highlight.js/styles/atom-one-dark.css'
 import { getWebContainer } from '../config/webcontainer'
 
 
