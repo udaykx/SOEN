@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext, useRef } from 'react'
+import { normalizeFileTree } from '../utils/fileTree.js'
 import { UserContext } from '../context/user.context'
 import { useNavigate, useLocation } from 'react-router-dom'
 import axios from '../config/axios'
@@ -13,8 +14,8 @@ function SyntaxHighlightedCode(props) {
     const ref = useRef(null)
 
     React.useEffect(() => {
-        if (ref.current && props.className?.includes('lang-') && window.hljs) {
-            window.hljs.highlightElement(ref.current)
+        if (ref.current && props.className?.includes('lang-')) {
+            hljs.highlightElement(ref.current)
 
             // hljs won't reprocess the element unless this attribute is removed
             ref.current.removeAttribute('data-highlighted')
@@ -22,6 +23,76 @@ function SyntaxHighlightedCode(props) {
     }, [ props.className, props.children ])
 
     return <code {...props} ref={ref} />
+}
+
+// Look up a file inside a nested fileTree using a "folder/file.js" style path
+function getFileFromTree(tree, path) {
+    if (!tree || !path) return null
+
+    const parts = path.split('/')
+    let current = tree
+
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[ i ]
+        const isLast = i === parts.length - 1
+
+        if (!current[ part ]) return null
+
+        if (isLast) {
+            return current[ part ]
+        } else {
+            current = current[ part ].directory
+        }
+    }
+
+    return null
+}
+
+// Immutably set a file's contents inside a nested fileTree using a "folder/file.js" style path
+function setFileInTree(tree, path, newFileValue) {
+    const parts = path.split('/')
+    const newTree = { ...tree }
+    let current = newTree
+
+    for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[ i ]
+        current[ part ] = {
+            ...current[ part ],
+            directory: { ...current[ part ].directory }
+        }
+        current = current[ part ].directory
+    }
+
+    current[ parts[ parts.length - 1 ] ] = newFileValue
+
+    return newTree
+}
+
+// Recursively render a nested fileTree in the explorer sidebar
+function renderFileTree(tree, onFileClick, path = '') {
+    return Object.entries(tree).map(([ name, value ]) => {
+        const fullPath = path ? `${path}/${name}` : name
+
+        if (value.directory) {
+            return (
+                <div key={fullPath} className="pl-2">
+                    <p className="font-semibold text-slate-600 px-2 py-1">{name}/</p>
+                    <div className="pl-2">
+                        {renderFileTree(value.directory, onFileClick, fullPath)}
+                    </div>
+                </div>
+            )
+        }
+
+        return (
+            <button
+                key={fullPath}
+                onClick={() => onFileClick(fullPath)}
+                className="tree-element cursor-pointer p-2 px-4 flex items-center gap-2 bg-slate-300 w-full">
+                <p className='font-semibold text-lg'>{name}</p>
+            </button>
+        )
+    })
 }
 
 
@@ -48,6 +119,13 @@ const Project = () => {
     const [ iframeUrl, setIframeUrl ] = useState(null)
 
     const [ runProcess, setRunProcess ] = useState(null)
+
+    // Dynamic run configuration — comes from the AI's response (message.buildCommand /
+    // message.startCommand). Defaults to a plain "npm install" + "npm start" for safety,
+    // but gets overwritten whenever the AI specifies something else (e.g. "npm run dev"
+    // for a Vite app).
+    const [ buildCommand, setBuildCommand ] = useState({ mainItem: 'npm', commands: [ 'install' ] })
+    const [ startCommand, setStartCommand ] = useState({ mainItem: 'npm', commands: [ 'start' ] })
 
     const handleUserClick = (id) => {
         setSelectedUserId(prevSelectedUserId => {
@@ -117,6 +195,14 @@ const Project = () => {
         if (!webContainer) {
             getWebContainer().then(container => {
                 setWebContainer(container)
+
+                // Register server-ready once, when the container is created —
+                // not inside the run button, to avoid stacking duplicate listeners
+                container.on('server-ready', (port, url) => {
+                    console.log("server ready:", port, url)
+                    setIframeUrl(url)
+                })
+
                 console.log("container started")
             })
         }
@@ -125,22 +211,31 @@ const Project = () => {
         receiveMessage('project-message', data => {
 
             console.log(data)
-            
-            if (data.sender._id == 'ai') {
 
+            if (data.sender._id == 'ai') {
 
                 const message = JSON.parse(data.message)
 
                 console.log(message)
 
-                webContainer?.mount(message.fileTree)
-
                 if (message.fileTree) {
-                    setFileTree(message.fileTree || {})
+                    const normalized = normalizeFileTree(message.fileTree)
+                    webContainer?.mount(normalized)
+                    setFileTree(normalized)
                 }
+
+                // Capture whatever build/start commands the AI specified for this
+                // project, so the run button doesn't have to guess (e.g. "npm start"
+                // vs "npm run dev" for a Vite app).
+                if (message.buildCommand) {
+                    setBuildCommand(message.buildCommand)
+                }
+                if (message.startCommand) {
+                    setStartCommand(message.startCommand)
+                }
+
                 setMessages(prevMessages => [ ...prevMessages, data ]) // Update messages state
             } else {
-
 
                 setMessages(prevMessages => [ ...prevMessages, data ]) // Update messages state
             }
@@ -152,7 +247,7 @@ const Project = () => {
             console.log(res.data.project)
 
             setProject(res.data.project)
-            setFileTree(res.data.project.fileTree || {})
+            setFileTree(normalizeFileTree(res.data.project.fileTree || {}))
         })
 
         axios.get('/users/all').then(res => {
@@ -184,6 +279,8 @@ const Project = () => {
     function scrollToBottom() {
         messageBox.current.scrollTop = messageBox.current.scrollHeight
     }
+
+    const currentFileValue = getFileFromTree(fileTree, currentFile)
 
     return (
         <main className='h-screen w-screen flex'>
@@ -260,19 +357,10 @@ const Project = () => {
                 <div className="explorer h-full max-w-64 min-w-52 bg-slate-200">
                     <div className="file-tree w-full">
                         {
-                            Object.keys(fileTree).map((file, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => {
-                                        setCurrentFile(file)
-                                        setOpenFiles([ ...new Set([ ...openFiles, file ]) ])
-                                    }}
-                                    className="tree-element cursor-pointer p-2 px-4 flex items-center gap-2 bg-slate-300 w-full">
-                                    <p
-                                        className='font-semibold text-lg'
-                                    >{file}</p>
-                                </button>))
-
+                            renderFileTree(fileTree, (fullPath) => {
+                                setCurrentFile(fullPath)
+                                setOpenFiles([ ...new Set([ ...openFiles, fullPath ]) ])
+                            })
                         }
                     </div>
 
@@ -301,12 +389,16 @@ const Project = () => {
                         <div className="actions flex gap-2">
                             <button
                                 onClick={async () => {
+                                    // fileTree is already nested (normalized at the write sites),
+                                    // so it's safe to mount directly here
                                     await webContainer.mount(fileTree)
 
+                                    console.log('Running build command:', buildCommand)
 
-                                    const installProcess = await webContainer.spawn("npm", [ "install" ])
-
-
+                                    const installProcess = await webContainer.spawn(
+                                        buildCommand.mainItem,
+                                        buildCommand.commands
+                                    )
 
                                     installProcess.output.pipeTo(new WritableStream({
                                         write(chunk) {
@@ -314,11 +406,22 @@ const Project = () => {
                                         }
                                     }))
 
+                                    const installExitCode = await installProcess.exit
+                                    if (installExitCode !== 0) {
+                                        console.error("Build command failed with exit code", installExitCode)
+                                        return
+                                    }
+
                                     if (runProcess) {
                                         runProcess.kill()
                                     }
 
-                                    let tempRunProcess = await webContainer.spawn("npm", [ "start" ]);
+                                    console.log('Running start command:', startCommand)
+
+                                    let tempRunProcess = await webContainer.spawn(
+                                        startCommand.mainItem,
+                                        startCommand.commands
+                                    );
 
                                     tempRunProcess.output.pipeTo(new WritableStream({
                                         write(chunk) {
@@ -328,11 +431,9 @@ const Project = () => {
 
                                     setRunProcess(tempRunProcess)
 
-                                    webContainer.on('server-ready', (port, url) => {
-                                        console.log(port, url)
-                                        setIframeUrl(url)
-                                    })
-
+                                    // NOTE: 'server-ready' listener is registered once in the
+                                    // useEffect above when the container is created — not here,
+                                    // to avoid stacking duplicate listeners on every click.
                                 }}
                                 className='p-2 px-4 bg-slate-300 text-white'
                             >
@@ -344,7 +445,7 @@ const Project = () => {
                     </div>
                     <div className="bottom flex flex-grow max-w-full shrink overflow-auto">
                         {
-                            fileTree[ currentFile ] && (
+                            currentFileValue && currentFileValue.file && (
                                 <div className="code-editor-area h-full overflow-auto flex-grow bg-slate-50">
                                     <pre
                                         className="hljs h-full">
@@ -354,18 +455,20 @@ const Project = () => {
                                             suppressContentEditableWarning
                                             onBlur={(e) => {
                                                 const updatedContent = e.target.innerText;
-                                                const ft = {
-                                                    ...fileTree,
-                                                    [ currentFile ]: {
-                                                        file: {
-                                                            contents: updatedContent
-                                                        }
+                                                const ft = setFileInTree(fileTree, currentFile, {
+                                                    file: {
+                                                        contents: updatedContent
                                                     }
-                                                }
+                                                })
                                                 setFileTree(ft)
                                                 saveFileTree(ft)
                                             }}
-                                            dangerouslySetInnerHTML={{ __html: hljs.highlight('javascript', fileTree[ currentFile ].file.contents).value }}
+                                            dangerouslySetInnerHTML={{
+                                                __html: hljs.highlight(
+                                                    currentFileValue.file.contents,
+                                                    { language: 'javascript' }
+                                                ).value
+                                            }}
                                             style={{
                                                 whiteSpace: 'pre-wrap',
                                                 paddingBottom: '25rem',
