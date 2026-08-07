@@ -21,7 +21,7 @@
 [![Socket.IO](https://img.shields.io/badge/Socket.IO-Realtime-010101?style=for-the-badge&logo=socket.io&logoColor=white)](https://socket.io/)
 [![Gemini](https://img.shields.io/badge/Google-Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1000&color=8B5CF6&center=true&vCenter=true&width=600&lines=Real-time+multiplayer+coding;AI-generated+full-stack+apps;Live+preview+%E2%80%94+zero+setup" alt="Typing SVG" />
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1000&color=8B5CF6&center=true&vCenter=true&width=600&lines=Real-time+colaborative+coding;AI-generated+full-stack+apps;Live+preview+%E2%80%94+zero+setup" alt="Typing SVG" />
 
 </div>
 
@@ -151,7 +151,7 @@ SOEN/
 ### 1. Clone the repo
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/udaykx/SOEN.git
 cd SOEN
 ```
 
@@ -241,7 +241,7 @@ Distributed under the **ISC License**.
 
 <div align="center">
 
-### Built by udaykx⚡ at **PREC**
+### Built by udaykx ⚡ at **PREC**
 
 <img src="https://media.giphy.com/media/hpaKe0ceR3nyd8CcnV/giphy.gif" width="200" alt="anime coding vibe"/>
 
